@@ -1,0 +1,12 @@
+{% block title %}Add bot{% endblock %}
+
+{% block content %}
+    <form method="post" action="/groupme/add_group">
+    {% for group in groups %}
+        <input type="radio" id="{{ group.group_id }}" name="to_add" value="{{ group.group_id }}">
+        <label for="{{ group.group_id }}">{{ group.name }}</label>
+    {% endfor %}
+    <input type="hidden" name="token" value="{{ token }}">
+    <input type="submit" value="Add this group">
+    </form>
+{% endblock %}
