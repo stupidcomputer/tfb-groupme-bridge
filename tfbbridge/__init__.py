@@ -1,70 +1,26 @@
 from flask import Flask, request, render_template, g, redirect
 import requests
 from .dbutils import get_and_init_db, get_db
-from .groupme import group_sharing_url_to_id
+from .groupme import group_sharing_url_to_id, get_oauth_auth_url, custom_get_oauth_auth
 import json
 import uuid
 
 app = Flask(__name__)
 app.config.from_mapping(
     DATABASE_LOCATION = "tfbbridge.sqlite3",
-    BOT_ID = "4b841d36f2a0788192b5375335"
 )
-
-@app.route("/")
-def testing():
-    return "testing"
-
-@app.route("/add_bot", methods=["GET", "POST"])
-def add_bot():
-    if request.method == "GET":
-        return render_template("add_new.html")
-    elif request.method == "POST":
-        try:
-            url = request.form["chaturl"]
-            try:
-                group_id = group_sharing_url_to_id(url)
-            except:
-                return "Bad URL", 400
-
-            db = get_db()
-            try:
-                db.execute(
-                    "INSERT INTO child_groups (group_id) VALUES (?)",
-                    (group_id,),
-                )
-                db.commit()
-            except db.IntegrityError:
-                return "This group is already registered."
-
-            bot_id = app.config["BOT_ID"]
-            print(bot_id)
-
-            requests.post("https://api.groupme.com/v3/bots?token={}".format(bot_id))
-
-            return url
-
-        except KeyError:
-            return "Bad URL", 400
-    else:
-        return "Invalid Method", 400
-
-@app.route("/list_child_groups")
-def list_child_groups():
-    db = get_db()
-    cursor = db.cursor()
-    cursor.execute('SELECT group_id FROM child_groups')
-    results = cursor.fetchall()
-    groups = [i[0] for i in results]
-    return groups
+app.config.from_file("config.json", load=json.load)
 
 @app.route("/groupme/oauth_callback")
 def oauth_callback():
     token = request.args.get("access_token")
-    print(token)
-
     r = requests.get("https://api.groupme.com/v3/groups?token={}".format(token))
-    data = r.json()["response"]
+    try:
+        print(r.text)
+        print(token)
+        data = r.json()["response"]
+    except KeyError:
+        return "Couldn't find something", 500
     data = [
         {
             "group_id": i["group_id"],
@@ -78,9 +34,6 @@ def oauth_callback():
 def add_group():
     token = request.form["token"]
     target_group = request.form["to_add"]
-    print(target_group)
-
-    print(token, target_group)
 
     headers = {
         'Content-Type': 'application/json',
@@ -100,15 +53,22 @@ def add_group():
     r = requests.post('https://api.groupme.com/v3/bots', params=params, headers=headers, json=json_data)
 
     payload = r.json()
-    bot_id = payload["response"]["bot_id"]
+    return payload
+    bot_id = payload["response"]["bot"]["bot_id"]
+    group_name = payload["response"]["bot"]["group_name"]
+    group_id = payload["response"]["bot"]["group_id"]
+
+    db = get_db()
+    try:
+        db.execute(
+            "INSERT INTO channels (group_name, group_id, bot_id, chan_type, organization)"
+        )
 
     return r.text
 
 @app.route("/groupme/authorize")
 def authorize():
-    return redirect(
-        "https://oauth.groupme.com/oauth/authorize?client_id=SgAPMhA6H1UuBE2QD2O5JE1BM6WnysRu6AP1ib6jQsqrH3QA",
-    )
+    return redirect(get_oauth_auth_url())
 
 @app.route("/groupme/create_organization", methods=["GET", "POST"])
 def create_organization():
@@ -165,5 +125,5 @@ def add_chan_to_org(org):
     cursor.execute('SELECT id, org_name FROM organizations WHERE addition_url=?', (org,))
     org_id, name = cursor.fetchone()
     return redirect(
-        "https://oauth.groupme.com/oauth/authorize?client_id=SgAPMhA6H1UuBE2QD2O5JE1BM6WnysRu6AP1ib6jQsqrH3QA&state=" + org,
+        "https://oauth.groupme.com/oauth/authorize?client_id=qAAAc8GSUlTA8C3Ypo9CMiFQwQCQnU8zPU5KGEtz3FYHDqP5&response_type=token"
     )

@@ -1,3 +1,4 @@
 tfbbridge.sqlite3
 __pycache__/
 *.pyc
+tfbbridge/config.json

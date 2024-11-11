@@ -4,8 +4,8 @@ DROP TABLE IF EXISTS parent_groups;
 CREATE TABLE organizations (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     org_name TEXT NOT NULL,
-    admin_url TEXT UNIQUE NOT NULL,
-    addition_url TEXT UNIQUE NOT NULL
+    admin_url TEXT UNIQUE NOT NULL, /* should be private */
+    addition_url TEXT UNIQUE NOT NULL /* can be public */
 );
 
 CREATE TABLE channels (
